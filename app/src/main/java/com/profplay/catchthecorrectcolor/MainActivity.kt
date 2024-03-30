@@ -28,7 +28,7 @@ class MainActivity : AppCompatActivity() {
 
     var handler : Handler = Handler(Looper.getMainLooper())
     /*
-    doğru ve yanlış için iki sınıf oluştur
+    doğru ve yanlış için iki circle sınıfı oluştur
     hepsini başta gizle
     Bir tane doğru renk ata diğerlerini rastgele  yanlış sınıfından ata
     hedef rengin konumu değişsin
