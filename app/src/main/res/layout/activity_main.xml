@@ -1,26 +1,38 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout
-    xmlns:android="http://schemas.android.com/apk/res/android"
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:id="@+id/mainLayout"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    tools:context=".MainActivity"
-    android:orientation="vertical">
+    android:layout_alignWithParentIfMissing="false"
+    android:layout_marginTop="32dp"
+    android:gravity="center_horizontal"
+    android:orientation="vertical"
+    tools:context=".MainActivity">
 
-    <Button
-        android:id="@+id/startButton"
-        android:layout_width="164dp"
-        android:layout_height="69dp"
+    <TextView
+        android:id="@+id/scoreTextView"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
         android:layout_marginTop="32dp"
-        android:onClick="startAction"
-        android:text="Start"
-        android:textSize="24sp"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintHorizontal_bias="0.497"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent" />
+        android:text="Score: 00"
+        android:textSize="34sp" />
+
+    <TextView
+        android:id="@+id/levelTextView"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Level: 1"
+        android:textSize="34sp" />
+
+    <TextView
+        android:id="@+id/timerText"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="50dp"
+        android:text="Left: "
+        android:textSize="34sp" />
 
     <TextView
         android:id="@+id/colorTextView"
@@ -29,44 +41,32 @@
         android:layout_marginTop="32dp"
         android:text="COLOR"
         android:textAlignment="center"
-        android:textSize="34sp"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/startButton" />
+        android:textSize="34sp" />
+
 
     <LinearLayout
-        android:id="@+id/cicleLinearLayout"
+        android:id="@+id/circleLinearLayout"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="horizontal">
+        android:gravity="center|center_vertical"
+        android:orientation="horizontal" />
 
-        <ImageView
-            android:id="@+id/circleImage"
-            android:layout_width="97dp"
-            android:layout_height="94dp"
-            android:onClick="betouched"
-            app:srcCompat="@drawable/daire" />
-    </LinearLayout>
+    <Button
+        android:id="@+id/startButton"
+        android:layout_width="164dp"
+        android:layout_height="69dp"
+        android:layout_marginTop="32dp"
+        android:onClick="startAction"
+        android:text="Start"
+        android:textSize="24sp" />
 
     <TextView
-        android:id="@+id/scoreTextView"
+        android:id="@+id/puanTextView"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginBottom="32dp"
-        android:text="Best Score:"
-        android:textSize="34sp"
-        app:layout_constraintBottom_toTopOf="@+id/timerText"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent" />
-    <TextView
-        android:id="@+id/timerText"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginBottom="50dp"
-        android:text="Left: "
-        android:textSize="34sp"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent" />
+        android:layout_marginTop="32dp"
+        android:text="Puan"
+        android:textAlignment="center"
+        android:textSize="34sp" />
 
 </LinearLayout>
