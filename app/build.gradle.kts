@@ -49,4 +49,12 @@ dependencies {
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
+
+    // MVVM (ViewModel & LiveData)
+    implementation("androidx.lifecycle:lifecycle-viewmodel-ktx:2.6.2")
+    implementation("androidx.lifecycle:lifecycle-livedata-ktx:2.6.2")
+    implementation("androidx.activity:activity-ktx:1.9.0") // viewModels() delegate için
+
+    // JSON Dönüşümü için (İleride loglama için lazım olacak)
+    implementation("com.google.code.gson:gson:2.10.1")
 }
