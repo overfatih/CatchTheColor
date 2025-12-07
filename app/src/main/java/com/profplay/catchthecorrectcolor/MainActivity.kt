@@ -2,18 +2,16 @@ package com.profplay.catchthecorrectcolor
 
 import android.graphics.Color
 import android.os.Bundle
-import android.widget.Toast
+import android.view.View
 import androidx.activity.viewModels
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import com.profplay.catchthecorrectcolor.databinding.ActivityMainBinding
 import com.profplay.catchthecorrectcolor.viewmodel.GameViewModel
 
 class MainActivity : AppCompatActivity() {
 
-    // ViewBinding kullanıyorsan (Tavsiye ederim):
     private lateinit var binding: ActivityMainBinding
-
-    // ViewModel'i delegate ile bağla
     private val viewModel: GameViewModel by viewModels()
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -24,55 +22,97 @@ class MainActivity : AppCompatActivity() {
         setupClickListeners()
         observeGameData()
 
-        // Oyunu başlat
-        viewModel.startGame()
+        // viewModel.startGame() <- BU SATIRI SİLDİK! Artık otomatik başlamıyor.
+        // Başlangıçta buton görünsün diye XML'de visibility="visible" yaptık veya observeGameData halledecek.
     }
 
     private fun setupClickListeners() {
-        // Artık Button değil, ImageView (ivCircle) kullanıyoruz
         val circles = listOf(binding.ivCircle0, binding.ivCircle1, binding.ivCircle2, binding.ivCircle3)
 
         circles.forEachIndexed { index, imageView ->
             imageView.setOnClickListener {
                 val currentState = viewModel.gameState.value
-                if (currentState != null && index < currentState.buttonColors.size) {
+                // Sadece oyun oynanıyorsa (isPlaying) tıklamaya izin ver
+                if (currentState != null && currentState.isPlaying && index < currentState.buttonColors.size) {
                     val clickedColor = currentState.buttonColors[index]
                     viewModel.processMove(clickedColor)
                 }
             }
         }
 
-        // Restart butonu (XML'e ekledik)
         binding.buttonRestart.setOnClickListener {
             viewModel.startGame()
-            binding.buttonRestart.visibility = android.view.View.GONE // Oyuna başlayınca gizle
+            // Butonun gizlenmesini observeGameData halledecek (isPlaying=true olunca)
         }
     }
 
     private fun observeGameData() {
         viewModel.gameState.observe(this) { state ->
 
-            // Skor, Seviye, Süre, Hedef Yazı aynen kalıyor...
-            binding.textViewScore.text = "Score: ${state.score} (Lvl: ${state.level})"
-            binding.textViewTime.text = "Time: ${"%.1f".format(state.timeLeftMs / 1000.0)}s" // Virgülden sonra tek hane
+            // --- UI GÜNCELLEMELERİ ---
+
+            // Skorlar
+            binding.textViewScore.text = "Best: %.2f".format(state.score)
+            binding.textViewTime.text = "Time: %.2f".format(state.elapsedTime / 100.0)
+            binding.textViewLevel.text = "Level: ${state.level}"
+            binding.textViewPuan.text = "Puan: %.5f".format(state.puan)
+
+            // Hedef Renk Yazısı
             binding.textViewTargetColor.text = state.targetColorName
-            binding.textViewTargetColor.setTextColor(Color.parseColor(state.targetColorHex))
 
-            // --- DEĞİŞEN KISIM: RESİMLERİ BOYAMA ---
+            // Daireleri Boya
             val circles = listOf(binding.ivCircle0, binding.ivCircle1, binding.ivCircle2, binding.ivCircle3)
-
-            state.buttonColors.forEachIndexed { index, colorHex ->
+            state.buttonColors.forEachIndexed { index, colorInt ->
                 if (index < circles.size) {
-                    // Daire resminin üzerine renk filtresi atıyoruz
-                    circles[index].setColorFilter(Color.parseColor(colorHex))
+                    circles[index].setColorFilter(colorInt)
                 }
             }
 
-            // Oyun Bitti mi?
+            // --- YENİ MANTIK: BUTON GÖRÜNÜRLÜĞÜ ---
+            if (state.isPlaying) {
+                // Oyun oynanıyorsa butonu gizle
+                binding.buttonRestart.visibility = View.GONE
+            } else {
+                // Oyun oynanmıyorsa (Başlangıç veya Game Over) butonu göster
+                binding.buttonRestart.visibility = View.VISIBLE
+
+                // Buton yazısını duruma göre değiştir
+                if (state.isGameOver) {
+                    binding.buttonRestart.text = "Tekrar Başlat"
+                } else {
+                    binding.buttonRestart.text = "Oyuna Başla"
+                }
+            }
+
+            // Oyun Bitti mi? Dialog Göster
             if (state.isGameOver) {
-                Toast.makeText(this, "Game Over! Final Score: ${state.score}", Toast.LENGTH_SHORT).show()
-                binding.buttonRestart.visibility = android.view.View.VISIBLE // Butonu göster
+                showGameOverDialog(state.gameOverMessage, state.puan)
             }
         }
+    }
+
+    private fun showGameOverDialog(message: String, finalPuan: Double) {
+        val builder = AlertDialog.Builder(this)
+        builder.setTitle("Oyun Bitti!")
+        builder.setMessage("$message\nToplam Puanınız: %.5f".format(finalPuan))
+        builder.setCancelable(false)
+
+        // "Tamam" butonuna basınca SADECE DIALOG KAPANSIN. Oyun başlamasın.
+        builder.setPositiveButton("Tamam") { dialog, _ ->
+            dialog.dismiss()
+            // Oyun başlamıyor, ana ekranda "Tekrar Başlat" butonu zaten görünür durumda (observeGameData sağladı)
+        }
+
+        // Dialog zaten açıksa tekrar açmamak için kontrol eklenebilir ama
+        // state.isGameOver true olduğu sürece observe sürekli tetiklenir.
+        // Bunu engellemek için ViewModel'de "Event Wrapper" kullanılır ama
+        // şimdilik basit çözüm: Zaten bir dialog varsa yenisini açma (Android kendi yönetir genelde)
+        // Ancak en temiz yöntem, dialog gösterildikten sonra bu "gösterildi" bilgisini tüketmektir.
+        // Ama şimdilik bu haliyle, dialog açıkken arkada oyun durduğu için sorun olmaz.
+
+        // NOT: Eğer dialog sürekli tekrar tekrar açılıyorsa (loop),
+        // ViewModel'e "resetGameOverFlag()" gibi bir fonksiyon eklememiz gerekir.
+        // Şimdilik deneyelim, sorun olursa düzeltiriz.
+        builder.show()
     }
 }

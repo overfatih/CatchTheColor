@@ -4,119 +4,155 @@ import android.os.CountDownTimer
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
-import com.profplay.catchthecorrectcolor.model.GameState
+
+// isPlaying: Oyun şu an aktif mi? (Kronometre çalışıyor mu?)
+data class GameState(
+    val score: Double = 0.0,
+    val puan: Double = 0.0,
+    val level: Int = 1,
+    val elapsedTime: Double = 0.0,
+    val timeLeftMs: Long = 0,
+    val targetColorHex: Int = 0,
+    val targetColorName: String = "Hazır mısın?", // Başlangıç yazısı
+    val buttonColors: List<Int> = emptyList(),
+    val isGameOver: Boolean = false,
+    val isPlaying: Boolean = false, // YENİ: Oyun başladı mı?
+    val gameOverMessage: String = ""
+)
 
 class GameViewModel : ViewModel() {
 
-    // UI'ın gözlemleyeceği (Observe edeceği) canlı veri
     private val _gameState = MutableLiveData(GameState())
     val gameState: LiveData<GameState> = _gameState
 
     private var timer: CountDownTimer? = null
 
-    // Oyun parametreleri (İleride zorluk ayarı için dinamik olacak)
-    private val initialTime = 10000L // 10 saniye
-    private val timePenaltyStep = 500L // Her seviyede 0.5sn azalsın
-
-    // Renk havuzu (Basit tuttum, genişletebiliriz)
-    private val colorsMap = mapOf(
-        "Red" to "#FF0000",
-        "Green" to "#00FF00",
-        "Blue" to "#0000FF",
-        "Yellow" to "#FFFF00",
-        "Black" to "#000000",
-        "White" to "#FFFFFF",
-        "Cyan" to "#00FFFF",
-        "Magenta" to "#FF00FF"
+    private val myColors = mapOf(
+        1 to Pair(android.graphics.Color.RED, "RED"),
+        2 to Pair(android.graphics.Color.BLUE, "BLUE"),
+        3 to Pair(android.graphics.Color.YELLOW, "YELLOW"),
+        4 to Pair(android.graphics.Color.GREEN, "GREEN")
     )
 
-    // Oyunu Başlat
-    fun startGame() {
+    // Başlangıç renkleri (Gri tonları olabilir veya boş)
+    private val initialColors = listOf(
+        android.graphics.Color.LTGRAY, android.graphics.Color.LTGRAY,
+        android.graphics.Color.LTGRAY, android.graphics.Color.LTGRAY
+    )
+
+    init {
+        // Uygulama ilk açıldığında "Boş/Bekleme" durumu oluştur
         _gameState.value = GameState(
-            timeLeftMs = initialTime,
-            score = 0,
-            level = 1,
-            isGameOver = false
+            buttonColors = initialColors,
+            isPlaying = false,
+            targetColorName = "START"
         )
-        generateNextLevel()
-        startTimer(initialTime)
     }
 
-    // Kullanıcı (veya AI) bir renk seçtiğinde çağrılır
-    fun processMove(selectedColorHex: String) {
+    private var currentNumber: Double = 0.0
+    private var bestScore: Double? = null
+    private var currentLevel: Int = 1
+    private var currentPuan: Double = 0.0
+
+    fun startGame() {
+        currentNumber = 0.0
+        bestScore = null
+        currentLevel = 1
+        currentPuan = 0.0
+
+        startLevelAction()
+    }
+
+    private fun startLevelAction() {
+        val randomKey = (1..4).random()
+        val targetPair = myColors[randomKey]!!
+        val targetColorInt = targetPair.first
+        val targetName = targetPair.second
+
+        val shuffledKeys = listOf(1, 2, 3, 4).shuffled()
+        val buttonColors = shuffledKeys.map { myColors[it]!!.first }
+
+        val limitMs = (300 - currentLevel) * 10L
+
+        _gameState.value = GameState(
+            score = bestScore ?: 0.0,
+            puan = currentPuan,
+            level = currentLevel,
+            targetColorHex = targetColorInt,
+            targetColorName = targetName,
+            buttonColors = buttonColors,
+            isGameOver = false,
+            isPlaying = true // YENİ: Oyun başladı, butonu gizle
+        )
+
+        startTimer(limitMs)
+    }
+
+    fun processMove(selectedColorInt: Int) {
         val currentState = _gameState.value ?: return
-        if (currentState.isGameOver) return
+        // Oyun oynamıyorsa (isPlaying = false) tıklamaları yoksay
+        if (!currentState.isPlaying || currentState.isGameOver) return
 
-        if (selectedColorHex == currentState.targetColorHex) {
-            // DOĞRU CEVAP
-            val nextLevel = currentState.level + 1
-            // Seviye arttıkça süre azalsın (Zorluk)
-            val newTime = (initialTime - (nextLevel * timePenaltyStep)).coerceAtLeast(1000L) // Min 1sn
-
-            _gameState.value = currentState.copy(
-                score = currentState.score + 1,
-                level = nextLevel,
-                timeLeftMs = newTime
-            )
-            generateNextLevel()
-            startTimer(newTime) // Süreyi resetle
+        if (selectedColorInt == currentState.targetColorHex) {
+            stopTimer()
+            calculateScoreAndLevelUp()
         } else {
-            // YANLIŞ CEVAP -> OYUN BİTER
-            endGame()
+            stopTimer()
+            endGame("Yanlış Cevap")
         }
     }
 
-    private fun generateNextLevel() {
-        val keys = colorsMap.keys.toList()
-        // Hedef rengi rastgele seç
-        val targetKey = keys.random()
-        val targetHex = colorsMap[targetKey] ?: "#FFFFFF"
+    // ... calculateScoreAndLevelUp AYNI KALSIN ...
+    private fun calculateScoreAndLevelUp() {
+        val reactionTime = currentNumber / 100.0
 
-        // Şıkları karıştır (Biri kesinlikle hedef renk olmalı)
-        val options = mutableListOf<String>()
-        options.add(targetHex)
-        // Kalan 3 şıkkı rastgele doldur
-        while (options.size < 4) {
-            val randomKey = keys.random()
-            val randomHex = colorsMap[randomKey] ?: "#000000"
-            if (!options.contains(randomHex)) {
-                options.add(randomHex)
-            }
+        if (bestScore == null) {
+            bestScore = reactionTime
+        } else {
+            bestScore = ((bestScore!! * (currentLevel - 1)) + reactionTime) / currentLevel
         }
 
-        // Mevcut durumu güncelle
-        val current = _gameState.value ?: GameState()
-        _gameState.value = current.copy(
-            targetColorName = targetKey,
-            targetColorHex = targetHex,
-            buttonColors = options.shuffled() // Şıkların yerini karıştır
-        )
+        if (bestScore != 0.0) {
+            currentPuan = currentLevel * (1.0 / bestScore!!)
+        }
+
+        currentLevel += 1
+        currentNumber = 0.0
+        startLevelAction()
     }
 
-    private fun startTimer(durationMs: Long) {
+    // ... startTimer AYNI KALSIN ...
+    private fun startTimer(limitMs: Long) {
         timer?.cancel()
-        timer = object : CountDownTimer(durationMs, 10) { // 10ms'de bir güncelle (Akıcı görünmesi için)
+        timer = object : CountDownTimer(limitMs, 10) {
             override fun onTick(millisUntilFinished: Long) {
-                val current = _gameState.value ?: return
-                _gameState.value = current.copy(timeLeftMs = millisUntilFinished)
+                currentNumber += 1.0
+                _gameState.value = _gameState.value?.copy(
+                    elapsedTime = currentNumber,
+                    timeLeftMs = millisUntilFinished
+                )
             }
 
             override fun onFinish() {
-                endGame()
+                endGame("Süre Doldu!")
             }
         }.start()
     }
 
-    private fun endGame() {
+    private fun stopTimer() {
         timer?.cancel()
+    }
+
+    private fun endGame(message: String) {
         val current = _gameState.value ?: return
         _gameState.value = current.copy(
             isGameOver = true,
-            timeLeftMs = 0
+            isPlaying = false, // YENİ: Oyun bitti, buton geri gelsin
+            gameOverMessage = message
         )
     }
 
-    // ViewModel ölünce timer'ı durdur (Memory Leak önlemi)
+    // ... onCleared AYNI KALSIN ...
     override fun onCleared() {
         super.onCleared()
         timer?.cancel()

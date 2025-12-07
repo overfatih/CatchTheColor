@@ -12,41 +12,75 @@
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:gravity="center">
+        android:orientation="vertical">
 
-        <TextView
-            android:id="@+id/textViewScore"
-            android:layout_width="0dp"
+        <LinearLayout
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:text="Score: 0"
-            android:textSize="24sp"
-            android:textStyle="bold"/>
+            android:orientation="horizontal"
+            android:gravity="center">
 
-        <TextView
-            android:id="@+id/textViewTime"
-            android:layout_width="wrap_content"
+            <TextView
+                android:id="@+id/textViewScore"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="Best: 0.00"
+                android:textSize="20sp"
+                android:textStyle="bold"/>
+
+            <TextView
+                android:id="@+id/textViewTime"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Time: 10s"
+                android:textSize="20sp"
+                android:textStyle="bold"/>
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Time: 10s"
-            android:textSize="24sp"
-            android:textStyle="bold"/>
+            android:layout_marginTop="8dp"
+            android:orientation="horizontal"
+            android:gravity="center">
+
+            <TextView
+                android:id="@+id/textViewLevel"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="Level: 1"
+                android:textSize="20sp"
+                android:textColor="#009688"
+                android:textStyle="bold"/>
+
+            <TextView
+                android:id="@+id/textViewPuan"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Puan: 0"
+                android:textColor="#FF5722"
+                android:textSize="20sp"
+                android:textStyle="bold"/>
+        </LinearLayout>
     </LinearLayout>
 
     <TextView
         android:id="@+id/textViewTargetColor"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginTop="32dp"
+        android:layout_marginTop="40dp"
         android:text="COLOR"
+        android:textColor="#333333"
         android:textAlignment="center"
-        android:textSize="48sp"
+        android:textSize="50sp"
         android:textStyle="bold" />
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="32dp"
+        android:layout_marginTop="40dp"
         android:orientation="vertical"
         android:gravity="center">
 
@@ -60,12 +94,14 @@
                 android:layout_width="120dp"
                 android:layout_height="120dp"
                 android:layout_margin="10dp"
-                android:src="@drawable/daire" /> <ImageView
-            android:id="@+id/ivCircle1"
-            android:layout_width="120dp"
-            android:layout_height="120dp"
-            android:layout_margin="10dp"
-            android:src="@drawable/daire" />
+                android:src="@drawable/daire" />
+
+            <ImageView
+                android:id="@+id/ivCircle1"
+                android:layout_width="120dp"
+                android:layout_height="120dp"
+                android:layout_margin="10dp"
+                android:src="@drawable/daire" />
         </LinearLayout>
 
         <LinearLayout
@@ -87,16 +123,15 @@
                 android:layout_margin="10dp"
                 android:src="@drawable/daire" />
         </LinearLayout>
-
     </LinearLayout>
 
     <Button
         android:id="@+id/buttonRestart"
-        android:layout_width="wrap_content"
+        android:layout_width="200dp"
         android:layout_height="wrap_content"
-        android:layout_marginTop="50dp"
-        android:text="Start / Restart"
+        android:layout_marginTop="30dp"
+        android:text="Oyuna Başla"
         android:visibility="visible"
-        android:textSize="24sp" />
+        android:textSize="20sp" />
 
 </LinearLayout>
