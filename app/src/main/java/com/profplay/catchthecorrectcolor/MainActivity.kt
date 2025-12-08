@@ -44,12 +44,21 @@ class MainActivity : AppCompatActivity() {
             viewModel.startGame()
             // Butonun gizlenmesini observeGameData halledecek (isPlaying=true olunca)
         }
+
+        // Simülasyon Butonu
+        binding.buttonSimulate.setOnClickListener {
+
+            // 10.000 Ajan x 50 Oyun = 500.000 İşlem
+            viewModel.runMonteCarloNorming(agentCount = 10000)
+
+            // 100 Oyunluk Deney Başlat (Gifted Profil, 0.3 Gürültü)
+            //viewModel.runMassiveSimulation(profile = viewModel.giftedProfile, noiseLevel = 0.3, gameCount = 100)
+        }
+        binding.buttonSimulate.text = "MONTE CARLO (10k Ajan)"
     }
 
     private fun observeGameData() {
         viewModel.gameState.observe(this) { state ->
-
-            // --- UI GÜNCELLEMELERİ ---
 
             // Skorlar
             binding.textViewScore.text = "Best: %.2f".format(state.score)
@@ -68,24 +77,35 @@ class MainActivity : AppCompatActivity() {
                 }
             }
 
-            // --- YENİ MANTIK: BUTON GÖRÜNÜRLÜĞÜ ---
             if (state.isPlaying) {
-                // Oyun oynanıyorsa butonu gizle
+                // Oyun oynanıyorsa/Hesaplanıyorsa
                 binding.buttonRestart.visibility = View.GONE
-            } else {
-                // Oyun oynanmıyorsa (Başlangıç veya Game Over) butonu göster
-                binding.buttonRestart.visibility = View.VISIBLE
 
-                // Buton yazısını duruma göre değiştir
+                // Simülasyon sırasında butonu gizlemek yerine "Hesaplanıyor..." yazıp pasif yapabiliriz
+                // Ama senin mevcut yapında gizliyorduk. Eğer gizliyorsak sorun yok.
+                // Eğer buton görünür kalsın ama "Hesaplanıyor" yazsın istiyorsan:
+                binding.buttonSimulate.visibility = View.VISIBLE
+                binding.buttonSimulate.text = "Hesaplanıyor..."
+                binding.buttonSimulate.isEnabled = false // Tıklanmasın
+            } else {
+                // Oyun Bitti / Boşta
+                binding.buttonRestart.visibility = View.VISIBLE
+                binding.buttonSimulate.visibility = View.VISIBLE
+                binding.buttonSimulate.isEnabled = true // Tekrar tıklanabilsin
+
+                // METİNLERİ ESKİ HALİNE GETİR
+                binding.buttonSimulate.text = "AI TEST (Gifted)" // <--- DÜZELTME BURADA
+
                 if (state.isGameOver) {
-                    binding.buttonRestart.text = "Tekrar Başlat"
+                    binding.buttonRestart.text = "Tekrar Oyna"
                 } else {
                     binding.buttonRestart.text = "Oyuna Başla"
                 }
             }
 
             // Oyun Bitti mi? Dialog Göster
-            if (state.isGameOver) {
+            // DİKKAT: Burada küçük bir kontrol ekleyelim ki uygulama açılır açılmaz boş dialog çıkmasın
+            if (state.isGameOver && !state.isPlaying) {
                 showGameOverDialog(state.gameOverMessage, state.puan)
             }
         }
@@ -94,7 +114,8 @@ class MainActivity : AppCompatActivity() {
     private fun showGameOverDialog(message: String, finalPuan: Double) {
         val builder = AlertDialog.Builder(this)
         builder.setTitle("Oyun Bitti!")
-        builder.setMessage("$message\nToplam Puanınız: %.5f".format(finalPuan))
+        val formattedPuan = "%.5f".format(finalPuan)
+        builder.setMessage(message + "\nToplam Puanınız: " + formattedPuan)
         builder.setCancelable(false)
 
         // "Tamam" butonuna basınca SADECE DIALOG KAPANSIN. Oyun başlamasın.
