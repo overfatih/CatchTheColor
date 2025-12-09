@@ -61,6 +61,7 @@ class GameViewModel : ViewModel() {
     private var bestScore: Double? = null
     private var currentLevel: Int = 1
     private var currentPuan: Double = 0.0
+    private var normingPopulationScores: List<Double> = emptyList()
 
     fun startGame() {
         currentNumber = 0.0
@@ -170,29 +171,45 @@ class GameViewModel : ViewModel() {
 
     // Gifted: Hızlı, Odaklı, Azimli (Pes etmez), Sıkılmaya meyilli
     val giftedProfile = AIProfile(
-        typeName = "Gifted-Like",
-        baseReflexTime = 250.0,
-        focusStability = 1.5,
-        noiseResistance = 0.1,
-        errorProneFactor = 0.01,
-        // YENİ ÖZELLİKLER:
-        grit = 0.9,             // Çok Hırslı/Azimli (Pes etmez)
-        boredomThreshold = 0.8, // DİKKAT: Zeki olduğu için çabuk sıkılabilir (Eşik yüksekse çabuk sıkılır mantığı kurduysak)
-        // Kodda: motivation -= wins * threshold demiştik. Yüksek = Çabuk sıkılır.
-        fatigueRate = 0.3       // Az yorulur (Mental kapasite yüksek)
+        typeName = "Gifted (High Achiever)",
+
+        // --- BİLİŞSEL (COGNITIVE) ---
+        baseReflexTime = 450.0,   // ÇOK HIZLI. (Ortalama insan 300-350ms iken o 210ms)
+        focusStability = 2.0,     // HIZLI ÖĞRENİR. Seviye arttıkça performansı katlanarak artar.
+        noiseResistance = 0.3,    // DİKKATİ İYİDİR. Gürültüden az etkilenir (Ama 0 değil).
+        errorProneFactor = 0.01,  // HATASIZ. %1 hata payı (Çok dikkatli).
+        // --- DUYUŞSAL (AFFECTIVE) ---
+        grit = 0.7,               // ÇOK AZİMLİ. Hata yapsa da kolay kolay pes etmez.
+        boredomThreshold = 0.7,   // ÇABUK SIKILABİLİR. (Zeki bireyler rutinden hoşlanmaz).
+        // Kodumuzda bu değer yüksekse, kolay oyunlarda motivasyonu düşer.
+        fatigueRate = 0.2,         // DAYANIKLI. Zihinsel enerjisi yüksektir, geç yorulur.
+        adaptability = 0.9         // YENİ: Kaosa çok hızlı uyum sağlar (Yaratıcı çözüm)
     )
 
-    // Average: Ortalama hız, Ortalama azim
+    // Average (Normal):
+    // Literatür: Karmaşık görevde normaller 600-800ms bandındadır.
     val averageProfile = AIProfile(
         typeName = "Typical",
-        baseReflexTime = 350.0,
+        baseReflexTime = 700.0,   // DÜZELTİLDİ: 350 -> 700ms
         focusStability = 1.0,
         noiseResistance = 0.5,
         errorProneFactor = 0.05,
-        // YENİ ÖZELLİKLER:
-        grit = 0.5,             // Ortalama Azim
-        boredomThreshold = 0.2, // Kolay kolay sıkılmaz (Rutin işi sever)
-        fatigueRate = 0.5       // Normal yorulur
+        grit = 0.5,
+        boredomThreshold = 0.2,
+        fatigueRate = 0.5,
+        adaptability = 0.4        // YENİ: Değişime dirençli, zor uyum sağlar
+    )
+    // 2e (Sensory Sensitive): Hızlı ama Kırılgan
+    val giftedSensoryProfile = AIProfile(
+        typeName = "Gifted (Sensory Sensitive)",
+        baseReflexTime = 400.0,   // En Hızlısı
+        focusStability = 2.5,
+        noiseResistance = 0.9,    // Gürültüye dayanıksız
+        errorProneFactor = 0.03,
+        grit = 0.6,
+        boredomThreshold = 0.9,
+        fatigueRate = 0.4,
+        adaptability = 0.7        // YENİ: Zeki olduğu için uyum sağlar ama gürültü çok yorar
     )
     /**
      * Headless Simülasyonu Başlat
@@ -292,9 +309,10 @@ class GameViewModel : ViewModel() {
 
                 // 1. GAUSSIAN RANDOM İLE AJAN YARATMA
 
-                // Bilişsel (Eski)
-                var speed = 300.0 + (javaRandom.nextGaussian() * 50.0)
-                speed = max(150.0, min(500.0, speed))
+                // Bilişsel
+                // Ort 650ms -> 750ms, Sapma 100ms
+                var speed = 750.0 + (javaRandom.nextGaussian() * 100.0)
+                speed = max(350.0, min(1000.0, speed))
 
                 var focus = 2.0 + (javaRandom.nextGaussian() * 0.5)
                 focus = max(0.5, min(4.0, focus))
@@ -315,15 +333,20 @@ class GameViewModel : ViewModel() {
                 var fatigue = 0.5 + (javaRandom.nextGaussian() * 0.1)
                 fatigue = max(0.1, min(2.0, fatigue))
 
+                // Ort 0.5, Sapma 0.15
+                var adaptability = 0.5 + (javaRandom.nextGaussian() * 0.15)
+                adaptability = max(0.1, min(1.0, adaptability))
+
                 val tempProfile = AIProfile(
                     typeName = "MC-$i",
                     baseReflexTime = speed,
                     focusStability = focus,
                     noiseResistance = 0.0,
                     errorProneFactor = error,
-                    grit = grit,           // YENİ
-                    boredomThreshold = boredom, // YENİ
-                    fatigueRate = fatigue  // YENİ
+                    grit = grit,
+                    boredomThreshold = boredom,
+                    fatigueRate = fatigue,
+                    adaptability = adaptability
                 )
 
                 // 2. PSİKOLOJİK SİMÜLASYON (Sabit 50 oyun değil, pes edene kadar!)
@@ -356,20 +379,44 @@ class GameViewModel : ViewModel() {
                 }
             }
 
-            // --- ANALİZ VE SONUÇ ---
-            // --- ANALİZ KISMI (GameViewModel.kt) ---
+            // --- ANALİZ VE SONUÇ (PERCENTILE YÖNTEMİ) ---
+            // 1. Önce Ortalamayı Bul
             val mean = populationScores.average()
+
+            // 2. Sonra Varyansı ve Standart Sapmayı (stdDev) Bul
             val variance = populationScores.map { (it - mean) * (it - mean) }.average()
-            val stdDev = Math.sqrt(variance)
-            val cutOffScore = mean + (2 * stdDev)
-            val actualMaxScore = populationScores.maxOrNull() ?: 0.0
+            val stdDev = Math.sqrt(variance) // <--- BU SATIR KESİN OLMALI
+
+            // 3. Barajları Hesapla
+            val sortedScores = populationScores.sorted()
+            normingPopulationScores = sortedScores
+            val totalSize = sortedScores.size
+            // TOP %2 (Dahi / Genius)
+            val indexTop2 = (totalSize * 0.98).toInt().coerceAtMost(totalSize - 1)
+            val barajTop2 = if (totalSize > 0) sortedScores[indexTop2] else 0.0
+
+            // TOP %5 (Üstün Yetenekli / Gifted) -> Genelde kullanılan budur
+            val indexTop5 = (totalSize * 0.95).toInt().coerceAtMost(totalSize - 1)
+            val barajTop5 = if (totalSize > 0) sortedScores[indexTop5] else 0.0
+
+            // TOP %15 (Parlak / High Achiever) -> Geniş havuz
+            val indexTop15 = (totalSize * 0.85).toInt().coerceAtMost(totalSize - 1)
+            val barajTop15 = if (totalSize > 0) sortedScores[indexTop15] else 0.0
+
+            val bottom2PercentIndex = (totalSize * 0.02).toInt().coerceAtLeast(0)
+            val lowerBaraj = if (totalSize > 0) sortedScores[bottom2PercentIndex] else 0.0
+
+            val actualMaxScore = sortedScores.maxOrNull() ?: 0.0
             val actualMaxLevel = records.maxOfOrNull { it.outputMaxLevel } ?: 0
 
-            // SAYILARI ÖNCE FORMATLIYORUZ (String'e çeviriyoruz)
+            // 4. ŞİMDİ String'e Çevir (stdDev artık tanımlı olduğu için hata vermez)
             val strMean = "%.2f".format(mean)
-            val strStd = "%.2f".format(stdDev)
-            val strCutOff = "%.2f".format(cutOffScore)
+            val strStd = "%.2f".format(stdDev) // <--- HATA BURADAYDI
+            val strLower = "%.2f".format(lowerBaraj)
             val strMaxScore = "%.2f".format(actualMaxScore)
+            val strBaraj2 = "%.2f".format(barajTop2)
+            val strBaraj5 = "%.2f".format(barajTop5)
+            val strBaraj15 = "%.2f".format(barajTop15)
 
             // JSON Loglama
             val gson = Gson()
@@ -386,17 +433,19 @@ class GameViewModel : ViewModel() {
                 level = actualMaxLevel,
                 targetColorName = "ANALİZ TAMAMLANDI",
 
-                // ARTIK FORMAT HATASI OLMAZ ÇÜNKÜ HAZIR STRİNGLERİ ($str...) KOYUYORUZ
                 gameOverMessage = """
-                    Simüle Edilen Ajan: $agentCount
-                    Ortalama Puan: $strMean
+                    Evren: $agentCount Ajan
+                    Ortalama: $strMean
                     Std Sapma: $strStd
                     -----------------
-                    BARAJ (+2SD): $strCutOff
+                    BARAJLAR:
+                    Top %%2 (Dahi): $strBaraj2
+                    Top %%5 (Üstün): $strBaraj5
+                    Top %%15 (Parlak): $strBaraj15
+                    ALT SINIR (Bottom %2): $strLower
+                    -----------------
                     EN YÜKSEK SKOR: $strMaxScore
                     EN YÜKSEK LEVEL: $actualMaxLevel
-                    -----------------
-                    *JSON Logcat'te hazır*
                 """.trimIndent(),
 
                 isGameOver = true,
@@ -613,6 +662,109 @@ class GameViewModel : ViewModel() {
                 isPlaying = false
             )
         }
+    }
+
+    /**
+     * HİPOTEZ TESTİ: Gürültü Stres Analizi
+     * Gifted profilini artan gürültü seviyelerinde test eder ve
+     * barajın altına düştüğü "Kırılma Noktasını" bulur.
+     */
+    fun runNoiseStressTest(barajPuan: Double = 400.0) {
+        if (normingPopulationScores.isEmpty()) {
+            _gameState.value = _gameState.value?.copy(
+                gameOverMessage = "Lütfen önce 'NORM OLUŞTUR' (Monte Carlo) butonuna basarak veriyi toplayın!",
+                isGameOver = true
+            )
+            return
+        }
+
+        viewModelScope.launch {
+            _gameState.value = _gameState.value?.copy(
+                isPlaying = true,
+                targetColorName = "STRES TESTİ...\n(Percentile Analizi)"
+            )
+            delay(100)
+
+            val results = StringBuilder()
+            results.append("Gürültü | Puan  | Konum (Rank)\n")
+            results.append("-----------------------------\n")
+
+            // 0.0'dan 0.6'ya kadar test etsek yeterli (Zaten düşecek)
+            for (noiseInt in 0..60 step 10) {
+
+                val currentNoise = noiseInt / 100.0
+
+                // Gifted Profilini Test Et (50 Oyunluk Ortalama)
+                val summary = runBatchWithPsychology(giftedProfile, currentNoise, count = 50)
+                //val summary = runBatchWithPsychology(averageProfile, currentNoise, count = 50)
+                //val summary = runBatchWithPsychology(giftedSensoryProfile, currentNoise, count = 50)
+
+                // YENİ: Geçti/Kaldı yok -> Yüzdelik Dilim Var
+                val rankStatus = calculatePercentileRank(summary.avgScore)
+
+                val line = "%.1f    | %.0f | $rankStatus".format(currentNoise, summary.avgScore)
+                results.append(line + "\n")
+
+                _gameState.value = _gameState.value?.copy(
+                    targetColorName = "Gürültü: $currentNoise"
+                )
+                delay(50)
+            }
+
+            _gameState.value = GameState(
+                score = 0.0,
+                puan = 0.0,
+                level = 0,
+                targetColorName = "HİPOTEZ TESTİ BİTTİ",
+                gameOverMessage = """
+                    Dayanıklılık Raporu:
+                    
+                    ${results.toString()}
+                    ---------------------
+                    * Rank: Popülasyon içindeki sıralaması.
+                    (Top %2 = En iyi %2'lik dilim)
+                """.trimIndent(),
+                isGameOver = true,
+                isPlaying = false
+            )
+        }
+    }
+
+    // Yardımcı: Belirli bir gürültüde 50 oyun oynatıp ortalamasını döner
+    // runMonteCarlo içinde kullandığımız runPsychoSimulation'ı çağırır
+    private fun runBatchWithPsychology(profile: AIProfile, noise: Double, count: Int): SimulationSummary {
+        var totalScore = 0.0
+        var games = 0
+
+        repeat(count) {
+            val res = runPsychoSimulation(profile) // Mevcut fonksiyonunu kullanır
+            // Sadece geçerli oyunları alalım ki ortalama sapmasın
+            if (res.avgScore > 0) {
+                totalScore += res.avgScore
+                games++
+            }
+        }
+
+        val finalAvg = if(games > 0) totalScore / games else 0.0
+        return SimulationSummary(finalAvg, games, "BATCH", 0)
+    }
+
+    // Verilen puanın yüzdelik dilimini hesaplar (Örn: "Top %5")
+    private fun calculatePercentileRank(score: Double): String {
+        if (normingPopulationScores.isEmpty()) return "Veri Yok"
+
+        // Puanın, popülasyonun kaçından daha yüksek olduğunu bul
+        // binarySearch yaklaşık konumu verir, biz count kullanıp tam yerini bulalım (biraz yavaş ama kesin)
+        val countBelow = normingPopulationScores.count { it < score }
+
+        // Yüzdelik Sıra (Percentile Rank)
+        // Örn: 100 kişiden 95'ini geçtiyse -> %95 (Daha iyisi %5)
+        val percentile = (countBelow.toDouble() / normingPopulationScores.size) * 100.0
+
+        // Biz "Top X%" formatında istiyoruz (En iyi % kaçta?)
+        val topPercent = 100.0 - percentile
+
+        return "Top %%${"%.2f".format(topPercent)}" // Örn: Top %4.12
     }
 
 }

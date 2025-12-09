@@ -19,8 +19,13 @@ class AIPlayer(val profile: AIProfile) {
         // Seviye arttıkça hızlanmalı (Learning Curve) ama profile göre değişir
         val levelEffect = currentLevel * profile.focusStability * 2.0 // Her level ~2ms hızlandırır/yavaşlatır
 
-        // Gürültü etkisi (Stres)
-        val noiseEffect = environmentNoise * profile.noiseResistance * 100.0 // Gürültü max 100ms ekler
+        val adaptationBonus = (currentLevel * 0.01 * profile.adaptability).coerceAtMost(0.5)
+        // Örnek: Level 50'de, adaptability 0.8 ise -> %40 gürültü azaltma kazanır.
+
+        val effectiveNoise = environmentNoise * (1.0 - adaptationBonus)
+
+        // Gürültü etkisi (Stres) artık effectiveNoise üzerinden hesaplanır
+        val noiseEffect = effectiveNoise * profile.noiseResistance * 100.0
 
         // İnsan doğası gereği rastgele varyasyon (Gaussian Noise - Standart Sapma)
         val humanVariation = Random.nextDouble(-20.0, 20.0) // +/- 20ms sapma
@@ -33,7 +38,7 @@ class AIPlayer(val profile: AIProfile) {
 
         // 2. DOĞRU KARAR VERME OLASILIĞI
         // Hata yapma şansı: Profilin hataya yatkınlığı + Gürültü stresi
-        val errorChance = profile.errorProneFactor + (environmentNoise * 0.1)
+        val errorChance = profile.errorProneFactor + (effectiveNoise * 0.1)
 
         // Zar atıyoruz: Gelen sayı errorChance'ten büyükse DOĞRU, küçükse YANLIŞ basar
         val isCorrectMove = Random.nextDouble(0.0, 1.0) > errorChance

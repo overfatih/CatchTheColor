@@ -55,6 +55,12 @@ class MainActivity : AppCompatActivity() {
             //viewModel.runMassiveSimulation(profile = viewModel.giftedProfile, noiseLevel = 0.3, gameCount = 100)
         }
         binding.buttonSimulate.text = "MONTE CARLO (10k Ajan)"
+
+        binding.buttonSimulateTest.setOnClickListener {
+            // "Norm çalışmasında 1080 bulmuştum, bakalım gürültü bunu ne zaman bozacak?"
+            viewModel.runNoiseStressTest(barajPuan = 372.0)
+        }
+        binding.buttonSimulateTest.text = "STRES TESTİ (Hipotez)"
     }
 
     private fun observeGameData() {
@@ -94,7 +100,7 @@ class MainActivity : AppCompatActivity() {
                 binding.buttonSimulate.isEnabled = true // Tekrar tıklanabilsin
 
                 // METİNLERİ ESKİ HALİNE GETİR
-                binding.buttonSimulate.text = "AI TEST (Gifted)" // <--- DÜZELTME BURADA
+                binding.buttonSimulate.text = "AI TEST (Gifted)"
 
                 if (state.isGameOver) {
                     binding.buttonRestart.text = "Tekrar Oyna"
