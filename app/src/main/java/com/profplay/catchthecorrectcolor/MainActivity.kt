@@ -58,7 +58,7 @@ class MainActivity : AppCompatActivity() {
 
         binding.buttonSimulateTest.setOnClickListener {
             // "Norm çalışmasında 1080 bulmuştum, bakalım gürültü bunu ne zaman bozacak?"
-            viewModel.runNoiseStressTest(barajPuan = 372.0)
+            viewModel.runNoiseStressTest(barajPuan = 190.0)
         }
         binding.buttonSimulateTest.text = "STRES TESTİ (Hipotez)"
     }

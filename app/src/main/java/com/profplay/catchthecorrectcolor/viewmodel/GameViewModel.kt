@@ -169,47 +169,46 @@ class GameViewModel : ViewModel() {
 
     // --- SİMÜLASYON BÖLÜMÜ ---
 
-    // Gifted: Hızlı, Odaklı, Azimli (Pes etmez), Sıkılmaya meyilli
+    // 1. Gifted (High Achiever)
+    // Hızlı işlemleme, Yüksek Odak, Yüksek Azim, İyi Adaptasyon
     val giftedProfile = AIProfile(
         typeName = "Gifted (High Achiever)",
-
-        // --- BİLİŞSEL (COGNITIVE) ---
-        baseReflexTime = 450.0,   // ÇOK HIZLI. (Ortalama insan 300-350ms iken o 210ms)
-        focusStability = 2.0,     // HIZLI ÖĞRENİR. Seviye arttıkça performansı katlanarak artar.
-        noiseResistance = 0.3,    // DİKKATİ İYİDİR. Gürültüden az etkilenir (Ama 0 değil).
-        errorProneFactor = 0.01,  // HATASIZ. %1 hata payı (Çok dikkatli).
-        // --- DUYUŞSAL (AFFECTIVE) ---
-        grit = 0.7,               // ÇOK AZİMLİ. Hata yapsa da kolay kolay pes etmez.
-        boredomThreshold = 0.7,   // ÇABUK SIKILABİLİR. (Zeki bireyler rutinden hoşlanmaz).
-        // Kodumuzda bu değer yüksekse, kolay oyunlarda motivasyonu düşer.
-        fatigueRate = 0.2,         // DAYANIKLI. Zihinsel enerjisi yüksektir, geç yorulur.
-        adaptability = 0.9         // YENİ: Kaosa çok hızlı uyum sağlar (Yaratıcı çözüm)
+        baseReflexTime = 520.0,   // 480ms (Hızlı bir çocuk)
+        focusStability = 1.7,     // Zorluk arttıkça odaklanması artar
+        noiseResistance = 0.25,    // Dikkati iyi
+        errorProneFactor = 0.01,  // Az hata yapar
+        grit = 0.9,               // Pes etmez
+        boredomThreshold = 0.7,   // Rutinden sıkılabilir
+        fatigueRate = 0.2,        // Dayanıklı
+        adaptability = 0.85       // YENİ: Kaosa çözüm üretir
     )
 
-    // Average (Normal):
-    // Literatür: Karmaşık görevde normaller 600-800ms bandındadır.
+    // 2. Typical (Normal Gelişim Gösteren)
+    // Ortalama hız, Ortalama adaptasyon
     val averageProfile = AIProfile(
-        typeName = "Typical",
-        baseReflexTime = 700.0,   // DÜZELTİLDİ: 350 -> 700ms
-        focusStability = 1.0,
-        noiseResistance = 0.5,
-        errorProneFactor = 0.05,
-        grit = 0.5,
-        boredomThreshold = 0.2,
+        typeName = "Typical Child",
+        baseReflexTime = 750.0,   // DÜZELTİLDİ: 600ms (Ortalama bir çocuk)
+        focusStability = 0.8,     // Standart öğrenme eğrisi
+        noiseResistance = 0.5,    // Gürültüden etkilenir
+        errorProneFactor = 0.08,  // %5 - %8 hata payı
+        grit = 0.5,               // Ortalama azim
+        boredomThreshold = 0.2,   // Rutini sever
         fatigueRate = 0.5,
-        adaptability = 0.4        // YENİ: Değişime dirençli, zor uyum sağlar
+        adaptability = 0.4        // Değişime dirençli
     )
-    // 2e (Sensory Sensitive): Hızlı ama Kırılgan
+
+    // 3. Gifted (Sensory / 2e)
+    // Çok hızlı ama çok kırılgan
     val giftedSensoryProfile = AIProfile(
         typeName = "Gifted (Sensory Sensitive)",
-        baseReflexTime = 400.0,   // En Hızlısı
-        focusStability = 2.5,
-        noiseResistance = 0.9,    // Gürültüye dayanıksız
+        baseReflexTime = 420.0,   // EN HIZLI (Nöral iletim çok yüksek)
+        focusStability = 2.5,     // Hiper odak
+        noiseResistance = 0.9,    // DİKKAT: Gürültüye direnci yok (Çok hassas)
         errorProneFactor = 0.03,
         grit = 0.6,
         boredomThreshold = 0.9,
-        fatigueRate = 0.4,
-        adaptability = 0.7        // YENİ: Zeki olduğu için uyum sağlar ama gürültü çok yorar
+        fatigueRate = 0.6,        // Çabuk yorulur (Mental enerji tüketimi fazla)
+        adaptability = 0.6        // Zeki ama ortam kötüyse adapte olamaz
     )
     /**
      * Headless Simülasyonu Başlat
@@ -310,14 +309,18 @@ class GameViewModel : ViewModel() {
                 // 1. GAUSSIAN RANDOM İLE AJAN YARATMA
 
                 // Bilişsel
-                // Ort 650ms -> 750ms, Sapma 100ms
-                var speed = 750.0 + (javaRandom.nextGaussian() * 100.0)
+                // HIZ (Base Reflex Time)
+                // Ortalama: 700ms (Tipik çocuk)
+                // Sapma: 100ms (Geniş varyasyon)
+                // Sonuçlar genelde 500ms - 900ms arasında yoğunlaşır.
+                var speed = 600.0 + (javaRandom.nextGaussian() * 80.0)
                 speed = max(350.0, min(1000.0, speed))
 
+                // DİĞER ÖZELLİKLER (Aynı kalabilir veya hafif revize edilebilir)
                 var focus = 2.0 + (javaRandom.nextGaussian() * 0.5)
                 focus = max(0.5, min(4.0, focus))
 
-                var error = 0.03 + (javaRandom.nextGaussian() * 0.01)
+                var error = 0.04 + (javaRandom.nextGaussian() * 0.01) // Hata oranını bir tık artırdık (%4 ortalama)
                 error = max(0.001, min(0.1, error))
 
                 // Duyuşsal (YENİ - Karakter Özellikleri)
@@ -341,7 +344,7 @@ class GameViewModel : ViewModel() {
                     typeName = "MC-$i",
                     baseReflexTime = speed,
                     focusStability = focus,
-                    noiseResistance = 0.0,
+                    noiseResistance = 0.0,      // Norm çalışmasında 0
                     errorProneFactor = error,
                     grit = grit,
                     boredomThreshold = boredom,
@@ -669,7 +672,7 @@ class GameViewModel : ViewModel() {
      * Gifted profilini artan gürültü seviyelerinde test eder ve
      * barajın altına düştüğü "Kırılma Noktasını" bulur.
      */
-    fun runNoiseStressTest(barajPuan: Double = 400.0) {
+    fun runNoiseStressTest(barajPuan: Double = 190.0) {
         if (normingPopulationScores.isEmpty()) {
             _gameState.value = _gameState.value?.copy(
                 gameOverMessage = "Lütfen önce 'NORM OLUŞTUR' (Monte Carlo) butonuna basarak veriyi toplayın!",
@@ -695,7 +698,7 @@ class GameViewModel : ViewModel() {
                 val currentNoise = noiseInt / 100.0
 
                 // Gifted Profilini Test Et (50 Oyunluk Ortalama)
-                val summary = runBatchWithPsychology(giftedProfile, currentNoise, count = 50)
+                val summary = runBatchWithPsychology(averageProfile, currentNoise, count = 50)
                 //val summary = runBatchWithPsychology(averageProfile, currentNoise, count = 50)
                 //val summary = runBatchWithPsychology(giftedSensoryProfile, currentNoise, count = 50)
 
