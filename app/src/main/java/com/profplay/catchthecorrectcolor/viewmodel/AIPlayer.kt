@@ -5,58 +5,82 @@ import java.util.Random
 
 class AIPlayer(val profile: AIProfile) {
 
-    /**
-     * Hamle Yap (Simülasyonun Kalbi)
-     * @param currentLevel: Oyunun zorluk seviyesi
-     * @param environmentNoise: Ortam gürültüsü (0.0 ile 1.0 arası)
-     * @return Pair<GeçenSüre, DoğruMu>
-     */
+    private val javaRandom = Random()
+
+    // YENİ: Ajanın anlık stres seviyesi (0.0 - 1.0 arası)
+    // Oyun boyunca hata yaptıkça artar, doğru bildikçe azalır.
+    private var currentPanicLevel: Double = 0.0
+
+    // Her yeni oyun başladığında paniği sıfırlamak için fonksiyon
+    fun resetState() {
+        currentPanicLevel = 0.0
+    }
+
     fun makeMove(currentLevel: Int, environmentNoise: Double): SimulationMoveResult {
 
-        // Gaussian dağılım (Çan eğrisi) için Java Random kullanıyoruz
-        // Çünkü Kotlin.Random'da standart nextGaussian() yoktur.
-        val javaRandom = Random()
+        // 1. ADAPTASYON VE PANİK HESABI (Sebat Mekanizması)
 
-        // 1. ADAPTASYON (Bilişsel Esneklik)
-        // Seviye arttıkça ve "adaptability" yüksekse gürültü etkisi azalır (Alışkanlık kazanma)
-        val adaptationBonus = (currentLevel * 0.01 * profile.adaptability).coerceAtMost(0.5)
+        // 1. DÜZELTME: Adaptasyon gürültüyü tamamen yok edememeli, sadece azaltmalı.
+        // Max %30 koruma sağlasın (Eskiden %50 idi)
+        val adaptationBonus = (currentLevel * 0.005 * profile.adaptability).coerceAtMost(0.3)
         val effectiveNoise = (environmentNoise * (1.0 - adaptationBonus)).coerceAtLeast(0.0)
 
-        // 2. TEPKİ SÜRESİ HESAPLAMA (Cognitive Processing Speed Model)
+        // B. Panik Etkisi (Önceki hataların birikimi)
+        // Panik arttıkça beyin kilitlenir (Freeze) -> Süre uzar
+        val panicDelay = currentPanicLevel * 400.0 // Max panikte 400ms gecikme ekler!
 
-        // A. Odaklanma Etkisi (Flow State)
-        // Seviye arttıkça hızlanır ama senin kodundaki * 2.0 çok azdı, biraz artırdık (* 4.0)
-        // Ancak bir sınır koyduk (max 250ms hızlanabilir) ki süre 0'a inmesin.
+        // 2. TEPKİ SÜRESİ HESAPLAMA
+
+        // Odaklanma (Flow)
         val focusEffect = (currentLevel * profile.focusStability * 4.0).coerceAtMost(250.0)
 
-        // B. Gürültü Gecikmesi (Cognitive Load Penalty) - KRİTİK BİLİMSEL KISIM
-        // Literatür: Gürültü sadece hata yaptırmaz, beyni yavaşlatır (Latency).
-        // Noise 1.0 ise ve direnç 0 ise süreye 300ms eklenir.
-        val noiseDelay = effectiveNoise * 300.0 * (1.0 - profile.noiseResistance)
-
-        // C. İnsan Varyasyonu (Intra-Individual Variability - IIV)
-        // ESKİSİ: Random.nextDouble(-20.0, 20.0) -> Bu "Uniform" dağılımdır (Robot gibi).
-        // YENİSİ: Gaussian (Normal) Dağılım -> İnsan doğasına uygun.
-        // nextGaussian() ortalama 0.0, sapma 1.0 verir. Biz bunu 60 ile çarpıp +/- 60ms sapma yaratıyoruz.
+        // Gürültü Gecikmesi (Cognitive Load) 300 -> 600
+        // Gürültü %50 ise ve direnç yoksa, 300ms eklenir. Bu ciddi bir farktır.
+        val noiseDelay = effectiveNoise * 600.0 * (1.0 - profile.noiseResistance)
+        // İnsan Varyasyonu (Gaussian)
         val humanVariation = javaRandom.nextGaussian() * 60.0
 
-        // TOTAL SÜRE FORMÜLÜ
-        var calculatedTime = profile.baseReflexTime - focusEffect + noiseDelay + humanVariation
+        // TOTAL SÜRE
+        var calculatedTime = profile.baseReflexTime - focusEffect + noiseDelay + panicDelay + humanVariation
 
-        // Fizyolojik Sınırlar (İnsan 150ms'den hızlı olamaz)
+        // Fizyolojik Sınırlar
         calculatedTime = calculatedTime.coerceIn(150.0, 3000.0)
 
-        // 3. DOĞRU KARAR VERME OLASILIĞI (Accuracy)
-        // Gürültü arttıkça hata riski artar
-        val errorChance = profile.errorProneFactor + (effectiveNoise * 0.15)
+        // 3. DOĞRU KARAR VERME VE SONRAKİ HAMLE İÇİN PSİKOLOJİ GÜNCELLEME
 
-        // Hata kontrolü
+        // Hata Riski: Profil + Gürültü + MEVCUT PANİK
+        // Panikleyen çocuk daha çok hata yapar (Death Spiral)
+        val errorChance = profile.errorProneFactor + (effectiveNoise * 0.2) + (currentPanicLevel * 0.2)
+
         val isCorrectMove = javaRandom.nextDouble() > errorChance
+
+        // --- KRİTİK KISIM: Hata Sonrası Toparlanma (Resilience) ---
+        updatePanicState(isCorrectMove)
 
         return SimulationMoveResult(
             reactionTimeMs = calculatedTime,
             isCorrect = isCorrectMove
         )
+    }
+
+    // Paniği güncelleyen iç fonksiyon
+    private fun updatePanicState(isCorrect: Boolean) {
+        if (!isCorrect) {
+            // HATA YAPTI! Stres artıyor.
+            // Adaptability yüksekse daha az stres yüklenir, ama YİNE DE yüklenir.
+            // Örnek: Gifted (0.9) -> 0.15 artar. Normal (0.4) -> 0.25 artar.
+            val stressLoad = 0.1 + (0.25 * (1.0 - profile.adaptability))
+            currentPanicLevel += stressLoad
+        } else {
+            // DOĞRU YAPTI! Toparlanıyor (Recovery).
+            // Adaptability yüksekse daha hızlı sakinleşir.
+            // Ama anında 0.0 olmaz, yavaş yavaş düşer.
+            val recoveryRate = 0.05 + (0.15 * profile.adaptability)
+            currentPanicLevel -= recoveryRate
+        }
+
+        // Sınırları koru (Asla 0'ın altına inmez, 1'in üstüne çıkmaz)
+        currentPanicLevel = currentPanicLevel.coerceIn(0.0, 1.0)
     }
 }
 

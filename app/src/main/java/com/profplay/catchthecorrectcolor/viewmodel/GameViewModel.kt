@@ -173,28 +173,27 @@ class GameViewModel : ViewModel() {
     // Hızlı işlemleme, Yüksek Odak, Yüksek Azim, İyi Adaptasyon
     val giftedProfile = AIProfile(
         typeName = "Gifted (High Achiever)",
-        baseReflexTime = 520.0,   // 480ms (Hızlı bir çocuk)
-        focusStability = 1.7,     // Zorluk arttıkça odaklanması artar
-        noiseResistance = 0.25,    // Dikkati iyi
-        errorProneFactor = 0.01,  // Az hata yapar
-        grit = 0.9,               // Pes etmez
-        boredomThreshold = 0.7,   // Rutinden sıkılabilir
-        fatigueRate = 0.2,        // Dayanıklı
-        adaptability = 0.85       // YENİ: Kaosa çözüm üretir
+        baseReflexTime = 530.0,   // 520 -> 550ms (Biraz yavaşlattık)
+        focusStability = 1.5,     // 1.7 -> 1.5 (Süper hızlanma azaldı)
+        noiseResistance = 0.3,    // 0.25 -> 0.3 (Gürültüye biraz daha açık)
+        errorProneFactor = 0.02,  // %1 -> %2 (Her 50 soruda 1 hata yapabilir)
+        grit = 0.85,              // 0.9 -> 0.85
+        boredomThreshold = 0.7,
+        fatigueRate = 0.2,
+        adaptability = 0.8        // 0.85 -> 0.80
     )
 
-    // 2. Typical (Normal Gelişim Gösteren)
-    // Ortalama hız, Ortalama adaptasyon
+    // 2. Typical (Normal Gelişim) - Biraz "Güçlendi"
     val averageProfile = AIProfile(
         typeName = "Typical Child",
-        baseReflexTime = 750.0,   // DÜZELTİLDİ: 600ms (Ortalama bir çocuk)
-        focusStability = 0.8,     // Standart öğrenme eğrisi
-        noiseResistance = 0.5,    // Gürültüden etkilenir
-        errorProneFactor = 0.08,  // %5 - %8 hata payı
-        grit = 0.5,               // Ortalama azim
-        boredomThreshold = 0.2,   // Rutini sever
+        baseReflexTime = 700.0,   // 750 -> 700ms (Biraz hızlandı)
+        focusStability = 0.9,     // 0.8 -> 0.9 (Biraz daha iyi odaklanıyor)
+        noiseResistance = 0.5,
+        errorProneFactor = 0.04,  // %8 -> %4 (KRİTİK DEĞİŞİKLİK: Artık 25 soruda 1 hata yapıyor)
+        grit = 0.6,               // 0.5 -> 0.6 (Hemen pes etmiyor)
+        boredomThreshold = 0.2,
         fatigueRate = 0.5,
-        adaptability = 0.4        // Değişime dirençli
+        adaptability = 0.5        // 0.4 -> 0.5
     )
 
     // 3. Gifted (Sensory / 2e)
@@ -303,48 +302,54 @@ class GameViewModel : ViewModel() {
 
             val records = mutableListOf<SimulationRecord>()
             val populationScores = mutableListOf<Double>()
+            val gson = Gson()
 
             for (i in 1..agentCount) {
 
                 // 1. GAUSSIAN RANDOM İLE AJAN YARATMA
 
-                // Bilişsel
-                // HIZ (Base Reflex Time)
-                // Ortalama: 700ms (Tipik çocuk)
-                // Sapma: 100ms (Geniş varyasyon)
-                // Sonuçlar genelde 500ms - 900ms arasında yoğunlaşır.
-                var speed = 600.0 + (javaRandom.nextGaussian() * 80.0)
-                speed = max(350.0, min(1000.0, speed))
+                // --- CERRAHİ KALİBRASYON (Surgical Tightening) ---
+                // Hedef: Mean ~110, SD ~40, +2SD Barajı ~190
 
-                // DİĞER ÖZELLİKLER (Aynı kalabilir veya hafif revize edilebilir)
-                var focus = 2.0 + (javaRandom.nextGaussian() * 0.5)
-                focus = max(0.5, min(4.0, focus))
+                // 1. HIZ (SPEED):
+                // 480ms çok hızlıydı, 580ms çok yavaştı. Altın orta: 500ms.
+                // Varyansı (60 -> 45) düşürdük. Herkes birbirine daha yakın performans gösterecek.
+                var speed = 490.0 + (javaRandom.nextGaussian() * 48.0)
+                speed = max(350.0, min(850.0, speed))
 
-                var error = 0.04 + (javaRandom.nextGaussian() * 0.01) // Hata oranını bir tık artırdık (%4 ortalama)
-                error = max(0.001, min(0.1, error))
+                // 2. ODAK (FOCUS):
+                // Varyansı biraz kıstık (0.45 -> 0.35).
+                var focus = 2.0 + (javaRandom.nextGaussian() * 0.42)
+                focus = max(1.0, min(4.0, focus))
 
-                // Duyuşsal (YENİ - Karakter Özellikleri)
-                // Azim: Ort 0.6, Sapma 0.15
-                var grit = 0.6 + (javaRandom.nextGaussian() * 0.15)
-                grit = max(0.1, min(1.0, grit)) // 0.1 ile 1.0 arasına sıkıştır
+                // 3. HATA ORANI (EN ÖNEMLİ KISIM):
+                // Varyansı çok kıstık (0.008 -> 0.005). Tutarlılık artacak.
+                // Taban hatayı (min) 0.015'ten 0.020'ye çektik!
+                // Bu %0.5'lik fark, o 900 puanlık uçuk skorları bıçak gibi kesecek.
+                var error = 0.035 + (javaRandom.nextGaussian() * 0.005)
+                error = max(0.020, min(0.06, error)) // Taban %2.0 Hata (Süpermen Yok)
 
-                // Sıkılma: Ort 0.3, Sapma 0.1
+                // 4. SEBAT (GRIT):
+                // Biraz düşürdük (0.65 -> 0.60). Çok uzayan oyunları engellemek için.
+                var grit = 0.60 + (javaRandom.nextGaussian() * 0.10)
+                grit = max(0.3, min(0.9, grit))
+
+                // Sıkılma ve Yorulma
                 var boredom = 0.3 + (javaRandom.nextGaussian() * 0.1)
                 boredom = max(0.0, min(0.8, boredom))
 
-                // Yorulma: Ort 0.5, Sapma 0.1
-                var fatigue = 0.5 + (javaRandom.nextGaussian() * 0.1)
+                var fatigue = 0.4 + (javaRandom.nextGaussian() * 0.1) // Biraz daha dayanıklı (0.5 -> 0.4)
                 fatigue = max(0.1, min(2.0, fatigue))
 
-                // Ort 0.5, Sapma 0.15
-                var adaptability = 0.5 + (javaRandom.nextGaussian() * 0.15)
+                var adaptability = 0.6 + (javaRandom.nextGaussian() * 0.15) // Daha esnek (0.5 -> 0.6)
                 adaptability = max(0.1, min(1.0, adaptability))
 
+                // Profili Oluştur
                 val tempProfile = AIProfile(
                     typeName = "MC-$i",
                     baseReflexTime = speed,
                     focusStability = focus,
-                    noiseResistance = 0.0,      // Norm çalışmasında 0
+                    noiseResistance = 0.0,
                     errorProneFactor = error,
                     grit = grit,
                     boredomThreshold = boredom,
@@ -355,30 +360,32 @@ class GameViewModel : ViewModel() {
                 // 2. PSİKOLOJİK SİMÜLASYON (Sabit 50 oyun değil, pes edene kadar!)
                 val result = runPsychoSimulation(tempProfile)
 
-                // 3. KAYIT
+                // 3. KAYIT VE LOGLAMA (NDJSON FORMATI)
                 if (result.avgScore > 0) {
                     populationScores.add(result.avgScore)
 
-                    records.add(SimulationRecord(
+                    val record = SimulationRecord(
                         id = i,
                         inputBaseSpeed = speed,
                         inputFocus = focus,
                         inputGrit = grit,
                         inputBoredom = boredom,
-                        // inputFatigue = fatigue,
-
                         outputAvgScore = result.avgScore,
                         outputTotalGames = result.gamesPlayed,
                         outputQuitReason = result.reason,
                         outputMaxLevel = result.maxLevel
-                    ))
-                }
+                    )
 
+                    // LOGCAT'e TEK SATIR BAS (Tamponu patlatmaz)
+                    // ÖNEMLİ: Etiketi 'MC_DATA' yapıyoruz ki Python kodumuzla uyumlu olsun.
+                    android.util.Log.d("MC_DATA", gson.toJson(record))
+                }
+                // UI güncellemesi (Her 100 ajanda bir)
                 if (i % 100 == 0) {
                     _gameState.value = _gameState.value?.copy(
                         targetColorName = "Analiz: %${(i * 100) / agentCount}"
                     )
-                    delay(1)
+                    delay(5) // UI nefes alsın
                 }
             }
 
@@ -422,7 +429,7 @@ class GameViewModel : ViewModel() {
             val strBaraj15 = "%.2f".format(barajTop15)
 
             // JSON Loglama
-            val gson = Gson()
+            //val gson = Gson()
             val jsonStr = gson.toJson(records)
             // Logcat'e parça parça bas (Çok uzun olacağı için)
             val chunkSize = 4000
@@ -693,12 +700,12 @@ class GameViewModel : ViewModel() {
             results.append("-----------------------------\n")
 
             // 0.0'dan 0.6'ya kadar test etsek yeterli (Zaten düşecek)
-            for (noiseInt in 0..60 step 10) {
+            for (noiseInt in 0..100 step 10) {
 
                 val currentNoise = noiseInt / 100.0
 
                 // Gifted Profilini Test Et (50 Oyunluk Ortalama)
-                val summary = runBatchWithPsychology(averageProfile, currentNoise, count = 50)
+                val summary = runBatchWithPsychology(giftedProfile, currentNoise, count = 50)
                 //val summary = runBatchWithPsychology(averageProfile, currentNoise, count = 50)
                 //val summary = runBatchWithPsychology(giftedSensoryProfile, currentNoise, count = 50)
 
@@ -768,6 +775,21 @@ class GameViewModel : ViewModel() {
         val topPercent = 100.0 - percentile
 
         return "Top %%${"%.2f".format(topPercent)}" // Örn: Top %4.12
+    }
+
+    // Norm verisini dışarıdan set edebileceğimiz veya kontrol edebileceğimiz yapı
+    fun hasNormData(): Boolean = normingPopulationScores.isNotEmpty()
+
+    // Eğer veri varsa direkt Stres Testine geç, yoksa uyar
+    fun runSmartStressTest() {
+        if (!hasNormData()) {
+            // Veri yoksa otomatik oluştur (veya kullanıcıya buton çıkart)
+            runMonteCarloNorming(agentCount = 10000)
+            // Not: Monte Carlo bitince otomatik stres testini tetikletebilirsin
+        } else {
+            // Veri zaten var, direkt test et
+            runNoiseStressTest()
+        }
     }
 
 }
