@@ -12,6 +12,8 @@ import java.util.Random
 import com.google.gson.Gson // JSON dönüşümü için
 import kotlin.math.max
 import kotlin.math.min
+import kotlin.math.pow
+import kotlin.math.sqrt
 
 // isPlaying: Oyun şu an aktif mi? (Kronometre çalışıyor mu?)
 data class GameState(
@@ -291,62 +293,64 @@ class GameViewModel : ViewModel() {
     /**
      * GELİŞMİŞ MONTE CARLO (Psycho-Engine Dahil)
      */
-    fun runMonteCarloNorming(agentCount: Int = 10000) { // Test için 10bin
+    fun runMonteCarloNorming(agentCount: Int = 10000) {
         viewModelScope.launch {
+            val gson = Gson() // Döngü dışında bir kez oluşturulmalı
 
             _gameState.value = _gameState.value?.copy(
                 isPlaying = true,
-                targetColorName = "PSİKOLOJİK SİMÜLASYON...\n($agentCount Ajan)"
+                targetColorName = "VERİ TOPLANIYOR...\n($agentCount Ajan)"
             )
-            delay(50)
+            delay(50) // UI thread nefes alsın
 
-            val records = mutableListOf<SimulationRecord>()
             val populationScores = mutableListOf<Double>()
-            val gson = Gson()
+            // Not: 'records' listesini hafızada tutmuyoruz, direkt Logcat'e basacağız.
 
             for (i in 1..agentCount) {
+                // --- 1. PARAMETRE ÜRETİMİ (User Tuned + Micro Adjust) ---
 
-                // 1. GAUSSIAN RANDOM İLE AJAN YARATMA
-
-                // --- CERRAHİ KALİBRASYON (Surgical Tightening) ---
-                // Hedef: Mean ~110, SD ~40, +2SD Barajı ~190
+                // --- AYRIŞTIRMA MODU (Separation Mode) ---
+                // Hedef: Kurtosis'i artırmak (Sivrilik).
+                // Yöntem: Oyunu zorlaştır (Ortalama düşsün), Makası aç (Dahiler kaçsın).
 
                 // 1. HIZ (SPEED):
-                // 480ms çok hızlıydı, 580ms çok yavaştı. Altın orta: 500ms.
-                // Varyansı (60 -> 45) düşürdük. Herkes birbirine daha yakın performans gösterecek.
-                var speed = 490.0 + (javaRandom.nextGaussian() * 48.0)
-                speed = max(350.0, min(850.0, speed))
+                // 680ms -> 520ms. (Daha seri oynasınlar).
+                // Varyans: 60.0 (Yetenek farkı korunsun).
+                var speed = 440.0 + (javaRandom.nextGaussian() * 75.0)
+                speed = max(300.0, min(800.0, speed))
 
                 // 2. ODAK (FOCUS):
-                // Varyansı biraz kıstık (0.45 -> 0.35).
-                var focus = 2.0 + (javaRandom.nextGaussian() * 0.42)
-                focus = max(1.0, min(4.0, focus))
+                // 1.8 -> 2.0. Odaklanma arttı.
+                var focus = 2.0 + (javaRandom.nextGaussian() * 0.50)
+                focus = max(1.0, min(4.5, focus))
 
-                // 3. HATA ORANI (EN ÖNEMLİ KISIM):
-                // Varyansı çok kıstık (0.008 -> 0.005). Tutarlılık artacak.
-                // Taban hatayı (min) 0.015'ten 0.020'ye çektik!
-                // Bu %0.5'lik fark, o 900 puanlık uçuk skorları bıçak gibi kesecek.
-                var error = 0.035 + (javaRandom.nextGaussian() * 0.005)
-                error = max(0.020, min(0.06, error)) // Taban %2.0 Hata (Süpermen Yok)
+                // 3. HATA (ERROR):
+                // %5.0 -> %4.0 (0.040).
+                // Taban hata düştü (Ortalama yükselsin diye).
+                // AMA VARYANS 0.020 (Çok Yüksek).
+                // Bu sayede "Hatasız Kul Olmaz" ama "Dahi Ajan" olur ayrımı netleşecek.
+                var error = 0.040 + (javaRandom.nextGaussian() * 0.020)
+                error = max(0.015, min(0.12, error))
 
                 // 4. SEBAT (GRIT):
-                // Biraz düşürdük (0.65 -> 0.60). Çok uzayan oyunları engellemek için.
-                var grit = 0.60 + (javaRandom.nextGaussian() * 0.10)
-                grit = max(0.3, min(0.9, grit))
+                // Korelasyonumuz (0.30) gayet iyi, bunu koruyalım.
+                var grit = 0.55 + (javaRandom.nextGaussian() * 0.18)
+                grit = max(0.2, min(0.95, grit))
 
-                // Sıkılma ve Yorulma
+                // Yan Parametreler
                 var boredom = 0.3 + (javaRandom.nextGaussian() * 0.1)
                 boredom = max(0.0, min(0.8, boredom))
 
-                var fatigue = 0.4 + (javaRandom.nextGaussian() * 0.1) // Biraz daha dayanıklı (0.5 -> 0.4)
+                var fatigue = 0.4 + (javaRandom.nextGaussian() * 0.1)
                 fatigue = max(0.1, min(2.0, fatigue))
 
-                var adaptability = 0.6 + (javaRandom.nextGaussian() * 0.15) // Daha esnek (0.5 -> 0.6)
+                var adaptability = 0.6 + (javaRandom.nextGaussian() * 0.15)
                 adaptability = max(0.1, min(1.0, adaptability))
 
-                // Profili Oluştur
+                // --- 2. PROFİL OLUŞTUR ---
+                val agentName = "Agent-$i"
                 val tempProfile = AIProfile(
-                    typeName = "MC-$i",
+                    typeName = agentName,
                     baseReflexTime = speed,
                     focusStability = focus,
                     noiseResistance = 0.0,
@@ -357,110 +361,87 @@ class GameViewModel : ViewModel() {
                     adaptability = adaptability
                 )
 
-                // 2. PSİKOLOJİK SİMÜLASYON (Sabit 50 oyun değil, pes edene kadar!)
+                // --- 3. SİMÜLASYONU KOŞ ---
                 val result = runPsychoSimulation(tempProfile)
 
-                // 3. KAYIT VE LOGLAMA (NDJSON FORMATI)
-                if (result.avgScore > 0) {
-                    populationScores.add(result.avgScore)
+                // --- 4. KAYIT VE LOGLAMA (HİYERARŞİK) ---
+                if (result.consistentScore > 0) {
+                    populationScores.add(result.consistentScore)
 
-                    val record = SimulationRecord(
-                        id = i,
-                        inputBaseSpeed = speed,
-                        inputFocus = focus,
-                        inputGrit = grit,
-                        inputBoredom = boredom,
-                        outputAvgScore = result.avgScore,
-                        outputTotalGames = result.gamesPlayed,
-                        outputQuitReason = result.reason,
-                        outputMaxLevel = result.maxLevel
+                    // 1. DNA (Girdiler)
+                    val dnaData = AgentDNA(
+                        baseSpeed = speed,
+                        focus = focus,
+                        errorRate = error,
+                        grit = grit,
+                        boredomThresh = boredom
                     )
 
-                    // LOGCAT'e TEK SATIR BAS (Tamponu patlatmaz)
-                    // ÖNEMLİ: Etiketi 'MC_DATA' yapıyoruz ki Python kodumuzla uyumlu olsun.
+                    // 2. Performans (Çıktılar)
+                    val perfData = AgentPerf(
+                        avgScore = result.avgScore,
+                        maxScore = result.highestScore, // <-- Bunu simülasyondan döndürmelisin
+                        maxLevel = result.maxLevel,
+                        totalGamesPlayed = result.gamesPlayed,
+                        quitReason = result.reason,
+                        consistentScore = result.consistentScore
+                    )
+
+                    // 3. Ana Kayıt
+                    val record = SimulationRecord(
+                        agentId = agentName,
+                        dna = dnaData,
+                        performance = perfData
+                    )
+
+                    // Logcat'e Bas
                     android.util.Log.d("MC_DATA", gson.toJson(record))
                 }
-                // UI güncellemesi (Her 100 ajanda bir)
+
+                // UI Güncelleme (Her 100 ajanda bir)
                 if (i % 100 == 0) {
                     _gameState.value = _gameState.value?.copy(
                         targetColorName = "Analiz: %${(i * 100) / agentCount}"
                     )
-                    delay(5) // UI nefes alsın
+                    delay(5)
                 }
             }
 
-            // --- ANALİZ VE SONUÇ (PERCENTILE YÖNTEMİ) ---
-            // 1. Önce Ortalamayı Bul
-            val mean = populationScores.average()
+            // --- 5. OYUN SONU İSTATİSTİKLERİ (Sadece Bilgi Amaçlı) ---
+            if (populationScores.isNotEmpty()) {
+                val mean = populationScores.average()
+                val variance = populationScores.map { (it - mean).pow(2) }.average()
+                val stdDev = sqrt(variance)
 
-            // 2. Sonra Varyansı ve Standart Sapmayı (stdDev) Bul
-            val variance = populationScores.map { (it - mean) * (it - mean) }.average()
-            val stdDev = Math.sqrt(variance) // <--- BU SATIR KESİN OLMALI
+                // +2 Sigma (Üstün Yetenek) Barajı Hesabı
+                val sigma2Baraj = mean + (2 * stdDev)
 
-            // 3. Barajları Hesapla
-            val sortedScores = populationScores.sorted()
-            normingPopulationScores = sortedScores
-            val totalSize = sortedScores.size
-            // TOP %2 (Dahi / Genius)
-            val indexTop2 = (totalSize * 0.98).toInt().coerceAtMost(totalSize - 1)
-            val barajTop2 = if (totalSize > 0) sortedScores[indexTop2] else 0.0
+                // Formatlama
+                val strMean = "%.2f".format(mean)
+                val strStd = "%.2f".format(stdDev)
+                val strBaraj2SD = "%.2f".format(sigma2Baraj)
+                val maxScore = populationScores.maxOrNull() ?: 0.0
 
-            // TOP %5 (Üstün Yetenekli / Gifted) -> Genelde kullanılan budur
-            val indexTop5 = (totalSize * 0.95).toInt().coerceAtMost(totalSize - 1)
-            val barajTop5 = if (totalSize > 0) sortedScores[indexTop5] else 0.0
-
-            // TOP %15 (Parlak / High Achiever) -> Geniş havuz
-            val indexTop15 = (totalSize * 0.85).toInt().coerceAtMost(totalSize - 1)
-            val barajTop15 = if (totalSize > 0) sortedScores[indexTop15] else 0.0
-
-            val bottom2PercentIndex = (totalSize * 0.02).toInt().coerceAtLeast(0)
-            val lowerBaraj = if (totalSize > 0) sortedScores[bottom2PercentIndex] else 0.0
-
-            val actualMaxScore = sortedScores.maxOrNull() ?: 0.0
-            val actualMaxLevel = records.maxOfOrNull { it.outputMaxLevel } ?: 0
-
-            // 4. ŞİMDİ String'e Çevir (stdDev artık tanımlı olduğu için hata vermez)
-            val strMean = "%.2f".format(mean)
-            val strStd = "%.2f".format(stdDev) // <--- HATA BURADAYDI
-            val strLower = "%.2f".format(lowerBaraj)
-            val strMaxScore = "%.2f".format(actualMaxScore)
-            val strBaraj2 = "%.2f".format(barajTop2)
-            val strBaraj5 = "%.2f".format(barajTop5)
-            val strBaraj15 = "%.2f".format(barajTop15)
-
-            // JSON Loglama
-            //val gson = Gson()
-            val jsonStr = gson.toJson(records)
-            // Logcat'e parça parça bas (Çok uzun olacağı için)
-            val chunkSize = 4000
-            for (i in 0 until jsonStr.length step chunkSize) {
-                android.util.Log.d("MC_JSON", jsonStr.substring(i, min(jsonStr.length, i + chunkSize)))
+                _gameState.value = GameState(
+                    score = maxScore,
+                    puan = mean,
+                    level = agentCount,
+                    targetColorName = "ANALİZ TAMAMLANDI",
+                    gameOverMessage = """
+                        Evren: $agentCount Ajan
+                        Ortalama: $strMean
+                        Std Sapma: $strStd
+                        -----------------
+                        HEDEF BARAJ (+2SD):
+                        $strBaraj2SD Puan
+                        -----------------
+                        Veriler 'MC_DATA' etiketiyle
+                        Logcat'e basıldı.
+                    """.trimIndent(),
+                    isGameOver = true,
+                    isPlaying = false
+                )
             }
-
-            _gameState.value = GameState(
-                score = actualMaxScore,
-                puan = mean,
-                level = actualMaxLevel,
-                targetColorName = "ANALİZ TAMAMLANDI",
-
-                gameOverMessage = """
-                    Evren: $agentCount Ajan
-                    Ortalama: $strMean
-                    Std Sapma: $strStd
-                    -----------------
-                    BARAJLAR:
-                    Top %%2 (Dahi): $strBaraj2
-                    Top %%5 (Üstün): $strBaraj5
-                    Top %%15 (Parlak): $strBaraj15
-                    ALT SINIR (Bottom %2): $strLower
-                    -----------------
-                    EN YÜKSEK SKOR: $strMaxScore
-                    EN YÜKSEK LEVEL: $actualMaxLevel
-                """.trimIndent(),
-
-                isGameOver = true,
-                isPlaying = false
-            )
         }
     }
 
@@ -479,6 +460,9 @@ class GameViewModel : ViewModel() {
         var consecutiveWins = 0
         var quitReason = "LIMIT"
         var globalMaxLevel = 0
+        var globalMaxScore = 0.0
+
+        val topScores = java.util.PriorityQueue<Double>(5)
 
         // Max 200 oyun sınırı koyalım (Sonsuz döngü olmasın)
         while (currentMotivation > 0 && totalGames < 200) {
@@ -492,19 +476,52 @@ class GameViewModel : ViewModel() {
             var isFinished = false
 
             while (!isFinished) {
-                val move = player.makeMove(simLevel, 0.0) // Noise = 0
+                val move = player.makeMove(simLevel, 0.0)
                 val limit = (300 - simLevel) * 10.0
+
                 if (move.isCorrect && move.reactionTimeMs < limit) {
                     val t = (move.reactionTimeMs / 10.0) / 100.0
-                    if (simLevel==1) simScore=t else simScore=((simScore*(simLevel-1))+t)/simLevel
-                    if(simScore!=0.0) simPuan=simLevel*(1.0/simScore)
+                    if (simLevel == 1) simScore = t else simScore = ((simScore * (simLevel - 1)) + t) / simLevel
+                    if (simScore != 0.0) simPuan = simLevel * (1.0 / simScore)
+                    // --- YENİ EKLENEN KOD: KADEMELİ STRES (Yığılmayı Önler) ---
+                    // Level arttıkça "Bilişsel Yük" biner.
+                    // Level 20'de binde 4, Level 50'de %2.5 ek hata riski doğar.
+                    // Bu, "İyi" ajanları Level 30-40 bandında eler, sadece "Dahileri" geçirir.
+                    // Hedef: +2SD oranını %3.37'den %2.2'ye indirmek.
+                    // Yöntem: Duvarı dikleştirmek (25000 -> 15000 -> 22000 -> 11000 -> 14000).
+                    val stressFactor = (simLevel * simLevel) / 14000.0
+                    if (java.lang.Math.random() < stressFactor) {
+                        isFinished = true
+                    }
+                    // ----------------------------------------------------------
+
                     simLevel++
-                } else isFinished=true
-                if(simLevel>1000) isFinished=true
+                } else {
+                    isFinished = true
+                }
+                // Sonsuz döngü önlemi (Zaten stres faktörü buraya gelmeyi zorlaştırır)
+                if (simLevel > 1000) isFinished = true
             }
 
             if (simLevel > globalMaxLevel) {
                 globalMaxLevel = simLevel // Rekor kırıldıysa kaydet
+            }
+            if (simPuan > globalMaxScore) { // Skor rekoru kırdı mı?
+                globalMaxScore = simPuan
+            }
+
+            // --- TOP 5 MANTIĞI ---
+            if (simPuan > 0) { // Sadece geçerli puanlar
+                if (topScores.size < 5) {
+                    topScores.add(simPuan)
+                } else {
+                    // Eğer yeni puan, listedeki en düşük puandan büyükse
+                    // En düşüğü at, yeniyi ekle.
+                    if (simPuan > topScores.peek()) {
+                        topScores.poll() // En küçüğü at
+                        topScores.add(simPuan) // Yeniyi ekle
+                    }
+                }
             }
 
             // 2. Sonucu Değerlendir
@@ -558,16 +575,24 @@ class GameViewModel : ViewModel() {
             }
         }
 
-        val finalAvg = if(history.isNotEmpty()) history.average() else 0.0
-        return SimulationSummary(finalAvg, totalGames, quitReason, globalMaxLevel)
+        var sumTop = 0.0
+        val countTop = topScores.size
+        for (s in topScores) sumTop += s
+
+        val consistentScore = if (countTop > 0) sumTop / countTop else 0.0
+        val finalAvg = if (history.isNotEmpty()) history.average() else 0.0
+
+        return SimulationSummary(finalAvg, totalGames, quitReason, globalMaxLevel, globalMaxScore, consistentScore)
     }
 
     // Yardımcı Sınıf
     data class SimulationSummary(
-        val avgScore: Double,
+        val avgScore: Double,      // Genel Ortalama (İstatistik için kalsın)
         val gamesPlayed: Int,
         val reason: String,
-        val maxLevel: Int
+        val maxLevel: Int,
+        val highestScore: Double,  // Mutlak rekor (Meraklısına)
+        val consistentScore: Double // (Top 5 Avg)
     )
     /**
      * KÜTLESEL DENEY (MASSIVE SIMULATION)
@@ -746,9 +771,33 @@ class GameViewModel : ViewModel() {
         var totalScore = 0.0
         var games = 0
 
+        // En iyilerin iyisini tutacak değişkenler
+        var batchMaxScore = 0.0
+        var batchMaxLevel = 0
+
+        // YENİ: Batch içindeki en yüksek "Kararlı Skor" (Top 5 Avg) rekoru
+        var batchBestConsistentScore = 0.0
+
         repeat(count) {
-            val res = runPsychoSimulation(profile) // Mevcut fonksiyonunu kullanır
-            // Sadece geçerli oyunları alalım ki ortalama sapmasın
+            val res = runPsychoSimulation(profile)
+
+            // 1. Max Score Rekor Kontrolü
+            if (res.highestScore > batchMaxScore) {
+                batchMaxScore = res.highestScore
+            }
+
+            // 2. Level Rekor Kontrolü
+            if (res.maxLevel > batchMaxLevel) {
+                batchMaxLevel = res.maxLevel
+            }
+
+            // 3. YENİ: Consistent Score (Kararlı Skor) Rekor Kontrolü
+            // Hangi turda "En İyi 5 Ortalaması" daha yüksekse onu "Ajanın Kapasitesi" olarak kabul ediyoruz.
+            if (res.consistentScore > batchBestConsistentScore) {
+                batchBestConsistentScore = res.consistentScore
+            }
+
+            // Genel Ortalama (İstatistik için)
             if (res.avgScore > 0) {
                 totalScore += res.avgScore
                 games++
@@ -756,7 +805,16 @@ class GameViewModel : ViewModel() {
         }
 
         val finalAvg = if(games > 0) totalScore / games else 0.0
-        return SimulationSummary(finalAvg, games, "BATCH", 0)
+
+        // GÜNCEL RETURN: Artık 6 Parametre var
+        return SimulationSummary(
+            avgScore = finalAvg,
+            gamesPlayed = games,
+            reason = "BATCH",
+            maxLevel = batchMaxLevel,
+            highestScore = batchMaxScore,
+            consistentScore = batchBestConsistentScore
+        )
     }
 
     // Verilen puanın yüzdelik dilimini hesaplar (Örn: "Top %5")
@@ -794,17 +852,28 @@ class GameViewModel : ViewModel() {
 
 }
 
-// Analiz için kaydedilecek veri satırı
+// JSON Çıktısı için Veri Modeli (Gelişmiş Kimlik Kartı)
+// --- YENİ HİYERARŞİK VERİ MODELİ ---
+
 data class SimulationRecord(
-    val id: Int,
-    // Girdiler
-    val inputBaseSpeed: Double,
-    val inputFocus: Double,
-    val inputGrit: Double,
-    val inputBoredom: Double,
-    // Çıktılar
-    val outputAvgScore: Double,
-    val outputTotalGames: Int,    // Kaç oyun dayandı?
-    val outputQuitReason: String,  // Neden bıraktı?
-    val outputMaxLevel: Int
+    val agentId: String,
+    val dna: AgentDNA,          // Girdiler ayrı obje
+    val performance: AgentPerf  // Çıktılar ayrı obje
+)
+
+data class AgentDNA(
+    val baseSpeed: Double,
+    val focus: Double,
+    val errorRate: Double,
+    val grit: Double,
+    val boredomThresh: Double
+)
+
+data class AgentPerf(
+    val avgScore: Double,
+    val maxScore: Double,
+    val maxLevel: Int,
+    val totalGamesPlayed: Int,
+    val quitReason: String,
+    val consistentScore: Double
 )
