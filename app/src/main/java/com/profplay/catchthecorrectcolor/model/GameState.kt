@@ -1,11 +1,21 @@
 package com.profplay.catchthecorrectcolor.model
 
 data class GameState(
-    val score: Int = 0,
+    // Bilişsel Performans Verileri
+    val score: Double = 0.0,         // Anlık Skor (Double: Daha hassas ölçüm için)
+    val puan: Double = 0.0,          // Kümülatif/Ağırlıklı Puan
     val level: Int = 1,
-    val timeLeftMs: Long = 10000, // Başlangıç süresi (örn: 10sn)
-    val targetColorHex: String = "#FFFFFF", // Hedef renk
-    val targetColorName: String = "White",  // Ekranda yazacak isim
-    val buttonColors: List<String> = emptyList(), // Butonlardaki renkler
-    val isGameOver: Boolean = false
+
+    // Zamanlama
+    val elapsedTime: Double = 0.0,   // Geçen süre (cs cinsinden olabilir)
+    val timeLeftMs: Long = 0,        // Geri sayım (Eğer kullanılıyorsa)
+
+    // UI Durumu
+    val targetColorName: String = "Hazır mısın?", // Ekranda yazan "Kırmızı", "Mavi" vb.
+    val buttonColors: List<Int> = emptyList(),    // DİKKAT: Int (Android Color kodu) olmalı
+
+    // Oyun Akışı
+    val isPlaying: Boolean = false,    // Oyun şu an oynanıyor mu? (Compose buna bakıyor)
+    val isGameOver: Boolean = false,   // Oyun bitti mi?
+    val gameOverMessage: String = ""   // Bitiş mesajı
 )
